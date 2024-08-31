@@ -8,7 +8,7 @@ from math import log
 
 # Blynk authentication token
 BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5'  # Replace with your Auth Token
-BLYNK_URL = f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v0='
+BLYNK_URL2 = f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v0='
 
 # Initialize I2C bus and ADS1015 ADC
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -37,7 +37,7 @@ while True:
     print(f"Temperature: {temperature:.2f} C")
     
     # Send temperature to Blynk using HTTP request
-    response = requests.get(BLYNK_URL + str(temperature))
+    response = requests.get(BLYNK_URL2 + str(temperature))
     
     if response.status_code == 200:
         print(f"Value sent successfully: {temperature:.2f} to v0")
