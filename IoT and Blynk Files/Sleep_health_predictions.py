@@ -20,7 +20,7 @@ sensor = adafruit_mpu6050.MPU6050(i2c)
 # Constants
 CALIBRATION_PERIOD = 10  # Calibration period in seconds
 LOW_MOVEMENT_TIME = 10  # Time in seconds for low movement to indicate sleep
-SUSTAINED_MOVEMENT_TIME = 2  # Time in seconds for sustained movement to indicate waking up
+SUSTAINED_MOVEMENT_TIME = 4  # Time in seconds for sustained movement to indicate waking up
 SLEEP_DATA_PIN = 3  # Virtual pin for sending sleep data to Blynk
 
 # Calibration data
@@ -57,8 +57,8 @@ while True:
     current_gyro = sensor.gyro
 
     # Calculate the dynamic thresholds based on the current baseline
-    accel_threshold = np.mean(accel_baseline) + 0.1  # Adjust as needed
-    gyro_threshold = np.mean(gyro_baseline) + 0.1  # Adjust as needed
+    accel_threshold = np.mean(accel_baseline) + 0.1 
+    gyro_threshold = np.mean(gyro_baseline) + 0.1 
 
     # Check for movement
     if is_moving(current_accel, current_gyro, accel_baseline, gyro_baseline, accel_threshold, gyro_threshold):
