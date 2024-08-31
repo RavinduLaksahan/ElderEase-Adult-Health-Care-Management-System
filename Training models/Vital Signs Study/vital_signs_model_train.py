@@ -4,6 +4,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, classification_report
 
 # Load the dataset
 data = pd.read_csv('human_vital_signs_dataset.csv')
@@ -39,9 +40,18 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 # Train the model
 history = model.fit(X_train, y_train, epochs=50, batch_size=32, validation_split=0.2)
 
-# Evaluate the model
+# Evaluate the model on test data
 test_loss, test_accuracy = model.evaluate(X_test, y_test)
 print("Test Accuracy:", test_accuracy)
+
+# Make predictions on test data
+y_pred = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred, axis=1)
+
+# Confusion Matrix and Classification Report
+cm = confusion_matrix(y_test, y_pred_classes)
+print("Confusion Matrix:\n", cm)
+print("\nClassification Report:\n", classification_report(y_test, y_pred_classes))
 
 # Plot accuracy graph
 plt.plot(history.history['accuracy'], label='Training Accuracy')
