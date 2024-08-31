@@ -32,43 +32,51 @@ last_movement_time = None
 sleep_duration_hours = 0
 heart_rate_readings = []  # Array to store heart rate readings
 
-# Function to calibrate sensor
-
+# Function to retrieve user data from Blynk and calculate BMI
 def get_user_data_and_calculate_bmi():
-    # Retrieve data from Blynk
-    age = int(blynk.virtual_read(5)[0])  # Reading age from virtual pin V5
-    gender = int(blynk.virtual_read(4)[0])  # Reading gender from virtual pin V4 (0=Male, 1=Female)
-    weight = float(blynk.virtual_read(7)[0])  # Reading weight from virtual pin V7
-    height = float(blynk.virtual_read(6)[0])  # Reading height from virtual pin V6
+    # Retrieve data from Blynk using HTTP GET requests
+    age_response = requests.get(f'https://sgp1.blynk.cloud/external/api/get?token={BLYNK_AUTH}&v5')
+    gender_response = requests.get(f'https://sgp1.blynk.cloud/external/api/get?token={BLYNK_AUTH}&v4')
+    weight_response = requests.get(f'https://sgp1.blynk.cloud/external/api/get?token={BLYNK_AUTH}&v7')
+    height_response = requests.get(f'https://sgp1.blynk.cloud/external/api/get?token={BLYNK_AUTH}&v6')
 
-    # Calculate BMI
-    bmi = weight / (height ** 2)
+    # Check if all requests were successful
+    if age_response.status_code == 200 and gender_response.status_code == 200 and weight_response.status_code == 200 and height_response.status_code == 200:
+        age = int(age_response.json())
+        gender = int(gender_response.json())  # 0=Male, 1=Female
+        weight = float(weight_response.json())
+        height = float(height_response.json())
 
-    # Determine BMI category
-    if bmi < 18.5:
-        bmi_category = "Underweight"
-    elif 18.5 <= bmi < 24.9:
-        bmi_category = "Normal"
+        # Calculate BMI
+        bmi = weight / (height ** 2)
+
+        # Determine BMI category
+        if bmi < 18.5:
+            bmi_category = "Underweight"
+        elif 18.5 <= bmi < 24.9:
+            bmi_category = "Normal"
+        else:
+            bmi_category = "Overweight"
+
+        # Store the data in variables
+        user_data = {
+            'age': age,
+            'gender': 'Male' if gender == 0 else 'Female',
+            'weight': weight,
+            'height': height,
+            'bmi': bmi,
+            'bmi_category': bmi_category
+        }
+
+        # Send a message with the received data
+        print(f"Data received: Age={age}, Gender={'Male' if gender == 0 else 'Female'}, Weight={weight}, Height={height}, BMI={bmi:.2f}, BMI Category={bmi_category}")
+
+        return user_data
     else:
-        bmi_category = "Overweight"
+        print("Failed to retrieve one or more values from Blynk")
+        return None
 
-    # Store the data in variables
-    user_data = {
-        'age': age,
-        'gender': 'Male' if gender == 0 else 'Female',
-        'weight': weight,
-        'height': height,
-        'bmi': bmi,
-        'bmi_category': bmi_category
-    }
-     # Send a message with the received data
-    print(f"Data received: Age={age}, Gender={'Male' if gender == 0 else 'Female'}, Weight={weight}, Height={height}, BMI={bmi:.2f}, BMI Category={bmi_category}")
-
-    
-
-    return user_data
-
-
+# Function to calibrate sensor
 def calibrate_sensor():
     print("Calibrating sensor...")
     for _ in range(CALIBRATION_PERIOD * 10):  # Collect data over the calibration period
@@ -100,6 +108,12 @@ def get_heart_rate():
 accel_baseline, gyro_baseline = calibrate_sensor()
 
 while True:
+    # Get user data and calculate BMI
+    user_data = get_user_data_and_calculate_bmi()
+    if user_data is None:
+        time.sleep(1)  # Wait before trying again
+        continue  # Skip the rest of the loop and try again
+
     # Read acceleration and gyroscope data
     current_accel = sensor.acceleration
     current_gyro = sensor.gyro
