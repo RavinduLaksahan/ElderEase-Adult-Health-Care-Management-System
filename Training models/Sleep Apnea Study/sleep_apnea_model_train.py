@@ -3,9 +3,10 @@ import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout
-import matplotlib.pyplot as plt
 
 # Load dataset
 data = pd.read_csv('Sleep_data_new.csv')
@@ -62,6 +63,20 @@ plt.xlabel('Epoch')
 plt.legend(loc='lower right')
 plt.savefig('accuracy_graph.png')  # Save accuracy graph
 plt.show()
+
+# Predictions
+y_pred = model.predict(X_test)
+y_pred_classes = np.argmax(y_pred, axis=1)
+
+# Confusion Matrix
+conf_matrix = confusion_matrix(y_test, y_pred_classes)
+print("\nConfusion Matrix:")
+print(conf_matrix)
+
+# Classification Report
+class_report = classification_report(y_test, y_pred_classes)
+print("\nClassification Report:")
+print(class_report)
 
 # Save the model
 model.save('sleep_disorder_model.h5')
