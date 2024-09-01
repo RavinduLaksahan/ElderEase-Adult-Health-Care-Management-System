@@ -5,6 +5,7 @@ import adafruit_mpu6050
 import blynklib
 import numpy as np
 import requests
+import tensorflow as tf
 
 # Blynk authentication token
 BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5' 
@@ -32,6 +33,8 @@ last_movement_time = None
 sleep_duration_hours = 0
 heart_rate_readings = []  # Array to store heart rate readings
 
+model = tf.keras.models.load_model('sleep_disorder_model.h5')
+
 # Function to retrieve user data from Blynk and calculate BMI
 def get_user_data_and_calculate_bmi():
     # Retrieve data from Blynk using HTTP GET requests
@@ -43,7 +46,7 @@ def get_user_data_and_calculate_bmi():
     # Check if all requests were successful
     if age_response.status_code == 200 and gender_response.status_code == 200 and weight_response.status_code == 200 and height_response.status_code == 200:
         age = int(age_response.json())
-        gender = int(gender_response.json())  # 0=Male, 1=Female
+        gender = 'Male' if int(gender_response.json()) == 0 else 'Female'
         weight = float(weight_response.json())
         height = float(height_response.json())
 
@@ -55,23 +58,20 @@ def get_user_data_and_calculate_bmi():
             bmi_category = "Underweight"
         elif 18.5 <= bmi < 24.9:
             bmi_category = "Normal"
-        else:
+        elif 24.9 <= bmi < 29.9:
             bmi_category = "Overweight"
+        else:
+            bmi_category = "Obese"
 
         # Store the data in variables
-        user_data = {
-            'age': age,
-            'gender': 'Male' if gender == 0 else 'Female',
-            'weight': weight,
-            'height': height,
-            'bmi': bmi,
-            'bmi_category': bmi_category
-        }
+        global user_age, user_gender, user_weight, user_height, user_bmi, user_bmi_category
+        user_age = age
+        user_gender = gender
+        user_weight = weight
+        user_height = height
+        user_bmi = bmi
+        user_bmi_category = bmi_category
 
-        # Send a message with the received data
-        print(f"Data received: Age={age}, Gender={'Male' if gender == 0 else 'Female'}, Weight={weight}, Height={height}, BMI={bmi:.2f}, BMI Category={bmi_category}")
-
-        return user_data
     else:
         print("Failed to retrieve one or more values from Blynk")
         return None
@@ -109,10 +109,7 @@ accel_baseline, gyro_baseline = calibrate_sensor()
 
 while True:
     # Get user data and calculate BMI
-    user_data = get_user_data_and_calculate_bmi()
-    if user_data is None:
-        time.sleep(1)  # Wait before trying again
-        continue  # Skip the rest of the loop and try again
+    get_user_data_and_calculate_bmi()
 
     # Read acceleration and gyroscope data
     current_accel = sensor.acceleration
@@ -135,6 +132,27 @@ while True:
             is_sleeping = False
             sleep_start_time = None
             heart_rate_readings.clear()  # Clear readings after waking up
+
+            # Prepare data for model prediction
+            # Convert categorical variables to appropriate numerical values
+            gender_numeric = 0 if user_gender == 'Male' else 1
+            bmi_category_numeric = {"Underweight": 0, "Normal": 1, "Overweight": 2, "Obese": 3}
+            input_data = np.array([[gender_numeric, user_age, sleep_duration_hours, bmi_category_numeric[user_bmi_category], average_hr]])
+
+            # Make prediction
+            prediction = model.predict(input_data)
+
+            # Determine the sleep disorder based on model predictions
+            if prediction[0][0] > 0.5:  # Sleep Apnea
+                sleep_disorder = 'Sleep Apnea'
+            elif prediction[0][1] > 0.5:  # Insomnia
+                sleep_disorder = 'Insomnia'
+            else:  # Healthy
+                sleep_disorder = 'Healthy'
+            
+            # Send the sleep disorder prediction to Blynk via virtual pin V9
+            requests.get(f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v9={sleep_disorder}')
+            print(f"Sleep disorder prediction sent: {sleep_disorder} to v9")
 
         # Send "Person is Awake" message to Blynk via HTTP request
         response = requests.get(f"{BLYNK_URL}&v{SLEEP_DATA_PIN}=Person is Awake")
