@@ -3,12 +3,14 @@ import board
 import busio
 import adafruit_ads1x15.ads1015 as ADS
 from adafruit_ads1x15.analog_in import AnalogIn
-import requests  # Import the requests library
+import requests
+import tensorflow as tf
+import numpy as np
 from math import log
 
 # Blynk authentication token
-BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5'  # Replace with your Auth Token
-BLYNK_URL2 = f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v0='
+BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5'
+BLYNK_URL_BASE = f'https://sgp1.blynk.cloud/external/api/get?token={BLYNK_AUTH}&'
 
 # Initialize I2C bus and ADS1015 ADC
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -20,28 +22,54 @@ R0 = 10000  # Resistance at 25 degrees C (10k ohms)
 B = 3950    # Beta coefficient
 T0 = 298.15 # Temperature in Kelvin at 25 degrees C (25 + 273.15)
 
+# Load the pre-trained model
+model = tf.keras.models.load_model('human_vital_signs_model.h5')
+
 def get_temperature():
-    # Read voltage from the voltage divider
     Vout = chan.voltage
-    # Calculate the resistance of the thermistor
     Rt = R0 * (3.3 / Vout - 1)
-    # Calculate the temperature in Kelvin
     temperature_K = 1 / (1/T0 + log(Rt / R0) / B)
-    # Convert Kelvin to Celsius
     temperature_C = temperature_K - 273.15
     return temperature_C
 
-while True:
-    # Get temperature data
-    temperature = get_temperature()
-    print(f"Temperature: {temperature:.2f} C")
-    
-    # Send temperature to Blynk using HTTP request
-    response = requests.get(BLYNK_URL2 + str(temperature))
-    
+def get_blynk_value(pin):
+    url = f"{BLYNK_URL_BASE}{pin}"
+    response = requests.get(url)
     if response.status_code == 200:
-        print(f"Value sent successfully: {temperature:.2f} to v0")
+        return float(response.text)
     else:
-        print(f"Failed to send value. Status code: {response.status_code}")
+        print(f"Failed to retrieve value from {pin}. Status code: {response.status_code}")
+        return None
 
-    time.sleep(5)  # Read data every 5 seconds
+while True:
+    # Get temperature data from the sensor
+    temperature = get_temperature()
+    print(f"Body Temperature: {temperature:.2f} C")
+
+    # Send temperature to Blynk
+    requests.get(f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v0={temperature}')
+
+    # Retrieve data from Blynk
+    heart_rate = get_blynk_value('v1')
+    oxygen_saturation = get_blynk_value('v2')
+    age = get_blynk_value('v5')
+    gender = get_blynk_value('v4')  # 0 for Male, 1 for Female
+    weight = get_blynk_value('v7')
+    height = get_blynk_value('v6')
+
+    if None not in (heart_rate, oxygen_saturation, age, gender, weight, height):
+        derived_bmi = weight / (height ** 2)
+        print(f"Derived BMI: {derived_bmi:.2f}")
+
+        # Prepare the data for the model (reshape as the model expects a batch of inputs)
+        input_data = np.array([[heart_rate, temperature, oxygen_saturation, age, gender, weight, height, derived_bmi]])
+        
+        # Make prediction
+        prediction = model.predict(input_data)
+        risk_category = 'High Risk' if prediction[0][0] > 0.5 else 'Low Risk'
+
+        # Send the Risk Category to Blynk
+        requests.get(f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}&v8={risk_category}')
+        print(f"Risk Category sent successfully: {risk_category} to v8")
+
+    time.sleep(5)  # Pause for 5 seconds before the next reading

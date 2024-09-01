@@ -16,10 +16,10 @@ gender = gender_encoder.transform(['Male'])[0]
 # Encode 'BMI Category': Assuming 'Normal' = 0, 'Normal Weight' = 1, 'Overweight' = 2
 bmi_category_encoder = LabelEncoder()
 bmi_category_encoder.fit(['Normal', 'Normal Weight', 'Overweight'])
-bmi_category = bmi_category_encoder.transform(['Normal'])[0]
+bmi_category = bmi_category_encoder.transform(['Normal Weight'])[0]
 
 # Create the input array
-data = np.array([[gender, 30, 6.5, bmi_category, 70]])
+data = np.array([[gender, 50, 6.5, bmi_category, 65]])
 
 # 3. Make a prediction
 prediction = model.predict(data)
