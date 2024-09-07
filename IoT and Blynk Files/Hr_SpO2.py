@@ -5,7 +5,7 @@ import requests
 import numpy as np
 
 # Blynk authentication token
-BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5'  # Replace with your Auth Token
+BLYNK_AUTH = 'uEjWstrat9Hr-ljlQ314yJ09YUSNS_c5'
 BLYNK_URL = f'https://sgp1.blynk.cloud/external/api/update?token={BLYNK_AUTH}'
 
 # Initialize the MAX30102 sensor
@@ -90,5 +90,4 @@ while True:
             else:
                 print(f"Failed to send SpO2. Status code: {response_spo2.status_code}")
     
-    # Adjust delay for more stable readings
     time.sleep(0.5)
